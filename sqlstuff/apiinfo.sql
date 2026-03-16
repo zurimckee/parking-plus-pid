@@ -1,0 +1,7 @@
+-- Connection Id: 5
+-- User: event_scheduler
+-- Host: localhost
+-- DB: parkingdb
+-- Command: Daemon
+-- Time: 845
+-- State: Waiting on empty queue
