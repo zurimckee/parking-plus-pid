@@ -1,10 +1,16 @@
 from collections import defaultdict
 from pathlib import Path
-import sqlalchemy
+
 
 import streamlit as st
 import altair as alt
 import pandas as pd
+import plotly.express as px
+from sqlalchemy import create_engine
+import time #autorefresh every 60 secs
+
+#load database connection - and connect sqlalchemy engine
+engine = create_engine(st.secrets['dialect'] + '://' + st.secrets['username'] + ':' + st.secrets['password'] + '@' + st.secrets['host'] + '/' + st.secrets['database'])
 
 
 # Set the title and favicon that appear in the Browser's tab bar.
@@ -16,20 +22,4 @@ st.set_page_config(
 
 # -----------------------------------------------------------------------------
 # Declare some useful functions.
-
-
-def connect_db():
-    """Connects to the mysql database."""
-
-    DB_FILENAME = Path(__file__).parent / "server.db"
-    db_already_exists = DB_FILENAME.exists()
-
-    conn = st.connection("sql")
-    db_was_just_created = not db_already_exists
-
-    return conn, db_was_just_created
-
-
-if __name__ == "__main__":
-    connect_db()
 
