@@ -224,7 +224,7 @@ with st.sidebar:
                     )
                     conn.commit()
 
-                st.session_state.admin_message = f"Updated {selected_lot} to {"Active" if new_status == True else "Inactive"}"
+                st.session_state.admin_message = f"Updated {selected_lot} to {'Active' if new_status == True else 'Inactive'}"
                 st.cache_data.clear()
                 st.rerun()
 

@@ -246,13 +246,13 @@ SELECT
     -- dynamic occupied, count spots only where status == false
     COALESCE(SUM(CASE WHEN Spot.Status = FALSE THEN 1 ELSE 0 END), 0) AS Occupied_Count, 
     -- dynamic available spots, count spots only where status is true
-	COALESCE(SUM(CASE WHEN Spot.Status = FALSE THEN 1 ELSE 0 END), 0) AS Num_Spaces
+	COALESCE(SUM(CASE WHEN Spot.Status = TRUE THEN 1 ELSE 0 END), 0) AS Num_Spaces
 FROM Lots Lot
 LEFT JOIN Spots Spot ON Lot.Lot_ID = Spot.Lot_ID
 GROUP BY Lot.Lot_ID, Lot.Lot_Name;
 
 DROP VIEW Lot_Status_Summary;
-
+USE parkingdb;
 
 
 CREATE VIEW Near_Capacity AS
