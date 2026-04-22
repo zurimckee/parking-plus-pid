@@ -115,10 +115,10 @@ with tab3:
     )
     st.plotly_chart(fig, use_container_width=True)
 
-
+    
     if not occupancy_perc.empty:
-        st.warning(f" {len(near_capacity)} lot(s) are over 80% capacity")
-        st.dataframe(near_capacity[["Lot_Name", "Occupancy_Perc"]], use_container_width=True)
+        st.warning(f" {len(near_capacity)} lot(s) are over 80% capacity.")
+        st.dataframe(near_capacity[["Lot_Name", "Occupancy_Perc"]], use_container_width=False)
     else:
         st.success("All lots are mostly available!")
 
@@ -203,7 +203,7 @@ with st.container(border=True):
 with st.sidebar:
     st.header("Admin Control Panel")
 
-    lot_tab, spot_tab = st.tabs(["Manage Lots", "Manage Spots"])
+    lot_tab, spot_tab, sensor_tab = st.tabs(["Manage Lots", "Manage Spots", "Manage Sensors"])
 
 
     with lot_tab:
@@ -232,20 +232,17 @@ with st.sidebar:
             st.subheader("Add a new Parking Lot", help="Add a new parking lot to the database, new lots will be set to active by default")
             lot_id = st.text_input("Enter Lot ID", placeholder="Enter Lot ID (e.g. L002)")
             lot_name = st.text_input("Enter Lot Name", placeholder="Enter Lot Name (e.g. South Lot)")
-            address = st.text_input("Enter Lot Address", placeholder="Enter Lot Address (e.g 321 Central Ave, Charlotte, NC 28205)")
-            total_spaces = st.number_input("Number of Parking Spots", min_value=1, step=1)
+            address = st.text_input("Enter Lot Address", placeholder="Enter Lot Address")
             lot_type = st.selectbox("Select Lot Type", ["Deck", "Lot", "Street"])
 
 
             if st.button("Add Lot"):
                 with engine.connect() as conn:
                     conn.execute(
-                        text("INSERT INTO Lots(Lot_ID, Lot_Name, Address, Num_Spaces, Total_Spaces, Lot_Type) VALUES (:id, :name, :address, :num, :total, :type)"),
+                        text("INSERT INTO Lots(Lot_ID, Lot_Name, Address, Lot_Type) VALUES (:id, :name, :address, :type)"),
                         {"id": lot_id, 
                         "name": lot_name, 
                         "address": address, 
-                        "num": total_spaces,
-                        "total": total_spaces, 
                         "type": lot_type}
                     )
                     conn.commit()
@@ -277,7 +274,7 @@ with st.sidebar:
         with active_spot:
             st.subheader("Update Spot Status", help="Manually set a parking spot to available or occupied")
         # -- UPDATE SPOT STATUS --
-            spot_id = st.number_input("Spot ID", min_value=1, step=1)
+            spot_id = st.number_input("Spot ID", min_value=1, step=1, key="spot_id")
             spot_status = st.toggle("Available")
             if st.button("Update Spot Status"):
                 with engine.connect() as conn:
@@ -296,19 +293,20 @@ with st.sidebar:
         with add_spot:
             st.subheader("Add a New Parking Spot", help="Add a new parking spot to the database, new spots will be set to available by default")
         # -- ADD SPOT --
-            new_spot_id = st.number_input("Enter Spot ID", min_value=1, step=1)
+            new_spot_id = st.number_input("Enter Spot ID", min_value=1, step=1, key="new_spot_id")
             spot_lot_ID = st.text_input("Enter Lot ID for New Spot")
-            spot_type = st.selectbox("Select Spot Type", ["Handicapped", "Staff", "Reserved", " NULL"])
-            spot_level = st.number_input("Enter Level (if spot in a deck)", min_value=0, step=1)
+            spot_type = st.selectbox("Select Spot Type", ["Regular (None)", "Handicapped", "Staff", "Reserved"])
+            spot_level = st.number_input("Enter Level (if spot in a deck)", min_value=0, step=1, key="spot_level")
 
-            #figure out how to add a null option for spot type that doesn't break the query
+            spot_type_value = None if spot_type == "Regular (None)" else spot_type
+
             if st.button("Add Spot"):
                 with engine.connect() as conn:
                     conn.execute(
                         text("INSERT INTO Spots(Spot_ID, Lot_ID, Spot_Type, Level, Status) VALUES (:id, :lot_id, :type, :level, TRUE)"),
                         {"id": new_spot_id,
                         "lot_id": spot_lot_ID,
-                        "type": spot_type,
+                        "type": spot_type_value,
                         "level": spot_level}
                     )
                     conn.commit()
@@ -319,7 +317,7 @@ with st.sidebar:
         with delete_spot:
             st.subheader("Delete a Parking Spot", help="Delete a parking spot from the database, this will also delete all associated sensors")        
             # -- DELETE SPOT --
-            deleted_spot = st.number_input("Enter Spot ID to Delete", min_value=1, step=1)
+            deleted_spot = st.number_input("Enter Spot ID to Delete", min_value=1, step=1, key="deleted_spot")
             if st.button("Delete Spot"):
                 with engine.connect() as conn:
                     conn.execute(
@@ -334,8 +332,10 @@ with st.sidebar:
         # -- CHANGE SPOT TYPE --
         with change_spot_type:
             st.subheader("Change the type of a parking spot (e.g. from regular to reserved)")
-            spot_id_type = st.number_input("Enter Spot ID to Update Type", min_value=1, step=1)
-            new_spot_type = st.selectbox("Select New Spot Type", ["Handicapped", "Staff", "Reserved"])
+            spot_id_type = st.number_input("Enter Spot ID to Update Type", min_value=1, step=1, key="spot_id_type")
+            new_spot_type = st.selectbox("Select New Spot Type", ["Regular (None)", "Handicapped", "Staff", "Reserved"])
+            new_spot_type_value = None if spot_type == "Regular (None)" else new_spot_type
+
             if st.button("Update Spot Type"):
                 with engine.connect() as conn:
                     conn.execute(
@@ -343,8 +343,28 @@ with st.sidebar:
                         {"type": new_spot_type, "id": spot_id_type}
                     )
                     conn.commit()
-                st.session_state.admin_message = f"Updated Spot {spot_id_type} to {new_spot_type}"
+                st.session_state.admin_message = f"Updated Spot {spot_id_type} to {'Regular' if new_spot_type_value is None else new_spot_type_value}"
                 st.cache_data.clear()
                 st.rerun()
+    
+    with sensor_tab:
+        st.subheader("Sensor Management", help="Manage parking spot sensors")
+        st.write("Report a sensor as down, or update its status when fixed")
+        
+        sensor_id = st.number_input("Enter Spot ID", min_value=1, step=1, key="sensor_id")
+        sensor_status = st.toggle("Online")
+
+        if st.button("Update Sensor Status"):
+            with engine.connect() as conn:
+                conn.execute(
+                    text("UPDATE Sensor_Health SET Is_Online = :status WHERE Sensor_ID = :id"),
+                    {"status": spot_status, "id": spot_id}
+                )
+                conn.commit()
+            st.session_state.admin_message = f"Updated Sensor {sensor_id} to {"Online" if sensor_status == True else "Offline"}"
+            st.cache_data.clear()
+            st.rerun()
+        
+
 
 
