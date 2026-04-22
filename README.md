@@ -1,4 +1,4 @@
-# 🛍️ Parking Inventory Tracker
+# 🛍️ Parking+ Python Data GUI
 
 
 ### How to run it on your own machine
