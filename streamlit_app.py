@@ -2,11 +2,14 @@ from collections import defaultdict
 from pathlib import Path
 
 import streamlit as st
+import pymysql
 import pandas as pd
 import plotly.express as px
 from sqlalchemy import create_engine
 from sqlalchemy import text
 import datetime 
+
+
 
 # -- initialize session state for admin messages --
 if "admin_message" not in st.session_state:
@@ -18,11 +21,10 @@ if st.session_state.admin_message:
 
 
 #load database connection - and connect sqlalchemy engine
-conn = st.secrets["connections"]["sql"]
-engine = create_engine(
-    conn['dialect'] + '+' + conn['driver'] + '://' + 
-    conn['username'] + ':' + conn['password'] + '@' + 
-    conn['host'] + ':' + str(conn['port']) + '/' + conn['database'])
+db = st.secrets["mysql"]
+# Format: mysql+pymysql://user:password@host:port/database
+database_url = f"mysql+pymysql://{db['username']}:{db['password']}@{db['host']}:{db['port']}/{db['database']}"
+engine = create_engine(database_url)
 
 
 # Set the title and favicon that appear in the Browser's tab bar.
