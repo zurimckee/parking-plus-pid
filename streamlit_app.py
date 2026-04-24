@@ -213,7 +213,7 @@ with st.sidebar:
         active_lot, add_lot, delete_lot = st.tabs(["Update Lot Status", "Add New Lot", "Delete Lot"])
         # ------ LOTS ------
         with active_lot:
-            st.subheader("Lot Management", help= "Manually activate or deactivate a parking lot")
+            st.subheader("Update Lot Status", help= "Manually activate or deactivate a parking lot")
             lot_options = lot_summary["Lot_Name"].tolist()
             selected_lot = st.selectbox("Select lot", lot_options)  
             new_status = st.toggle("Active")
