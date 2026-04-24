@@ -2,7 +2,6 @@ from collections import defaultdict
 from pathlib import Path
 
 import streamlit as st
-import altair as alt
 import pandas as pd
 import plotly.express as px
 from sqlalchemy import create_engine
