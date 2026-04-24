@@ -29,9 +29,9 @@ engine = create_engine(database_url)
 
 # Set the title and favicon that appear in the Browser's tab bar.
 st.set_page_config(
-    page_title="Parking Lot Inventory Tracker",
+    page_title="ParkingPlus Dashboard",
     layout="wide",
-    page_icon=":automobile:",  # This is an emoji shortcode. Could be a URL too.
+    page_icon=":🚗",  # This is an emoji shortcode. Could be a URL too.
     menu_items={
         'Get help': 'https://smartparkingplus.lovable.app',
         'Report a bug': "mailto:zurimckee95@gmail.com"
