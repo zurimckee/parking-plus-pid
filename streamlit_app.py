@@ -59,6 +59,7 @@ st.caption(f"Last refreshed: {st.session_state['last_refresh'].strftime('%Y-%m-%
 def load_all_data():
     with engine.connect() as conn:
         lot_summary = pd.read_sql("SELECT * FROM Lot_Status_Summary", conn)
+        raw_lot_info = pd.read_sql("SELECT ls.*, l.Latitude, l.Longitude, l.Lot_Type FROM Lot_Status_Summary ls JOIN Lots l ON ls.Lot_ID = l.Lot_ID", conn)
         offline_sensors = pd.read_sql("SELECT COUNT(*) AS offline_count FROM Sensor_Health WHERE Is_Online = FALSE", conn)
         active_lots = pd.read_sql("SELECT COUNT(*) AS active_count FROM Lots WHERE Is_Active = TRUE", conn)
         spot_types = pd.read_sql("SELECT * FROM Spot_Status_Summary", conn)
@@ -69,10 +70,10 @@ def load_all_data():
     hourly.columns = ["Hour", "Events", "Occupancies", "Departures"]
     daily.columns  = ["Day", "Events", "Occupancies", "Departures"]
 
-    return lot_summary, offline_sensors, active_lots, spot_types, near_capacity, hourly, daily, peak
+    return lot_summary, raw_lot_info, offline_sensors, active_lots, spot_types, near_capacity, hourly, daily, peak
 
 
-lot_summary, offline_sensors, active_lots, spot_types, near_capacity, hourly, daily, peak = load_all_data()
+lot_summary, raw_lot_info, offline_sensors, active_lots, spot_types, near_capacity, hourly, daily, peak = load_all_data()
 
 total_spaces = lot_summary['Total_Spaces'].sum()
 occupied = lot_summary['Occupied_Count'].sum()
@@ -144,7 +145,7 @@ with tab4:
 
 # -- collapsable tables for raw data -- 
 with st.expander("Raw lot data"):
-    st.dataframe(lot_summary, use_container_width=True)
+    st.dataframe(raw_lot_info, use_container_width=True)
 
 with st.expander("Raw spot data"):
     st.dataframe(spot_types, use_container_width=True)
@@ -167,15 +168,17 @@ with st.container(border=True):
                 id_vars="Hour",
                 value_vars=["Occupancies", "Departures"],
                 var_name="Events",
+                value_name="Count"
             )
             fig3 = px.line(
                 hourly_melted,
                 x="Hour",
-                y="Events",
+                y="Count",
+                color="Events",
                 title="Today's Activity by Hour",
                 markers=True
             )
-            fig3.update_layout(xaxis_title="Hour of Day", yaxis_title="Events")
+            fig3.update_layout(xaxis_title="Hour of Day", yaxis_title="Count")
             st.plotly_chart(fig3, use_container_width=True)
         else:
             st.info("No activity logged today.")
@@ -186,15 +189,17 @@ with st.container(border=True):
                 id_vars="Day",
                 value_vars=["Occupancies", "Departures"],
                 var_name="Events",
+                value_name="Count"
             )
-            fig4 = px.bar(
+            fig4 = px.line(
                 daily_melted,
                 x="Day",
-                y="Events",
+                y="Count",
+                color="Events",
                 title="This Week's Daily Activity",
-                barmode="group"
+                markers=True
             )
-            fig4.update_layout(xaxis_title="Date", yaxis_title="Events")
+            fig4.update_layout(xaxis_title="Date", yaxis_title="Count")
             st.plotly_chart(fig4, use_container_width=True)
         else:
             st.info("No activity logged this week.")
@@ -334,17 +339,18 @@ with st.sidebar:
         with change_spot_type:
             st.subheader("Change the type of a parking spot (e.g. from regular to reserved)")
             spot_id_type = st.number_input("Enter Spot ID to Update Type", min_value=1, step=1, key="spot_id_type")
-            new_spot_type = st.selectbox("Select New Spot Type", ["Regular (None)", "Handicapped", "Staff", "Reserved"])
-            new_spot_type_value = None if spot_type == "Regular (None)" else new_spot_type
+            new_spot_type = st.selectbox("Select New Spot Type", ["Regular", "Handicapped", "Staff", "Reserved"])
+            new_spot_type_value = None if new_spot_type == "Regular" else new_spot_type
 
             if st.button("Update Spot Type"):
                 with engine.connect() as conn:
                     conn.execute(
                         text("UPDATE Spots SET Spot_Type = :type WHERE Spot_ID = :id"),
-                        {"type": new_spot_type, "id": spot_id_type}
+                        {"type": new_spot_type_value, "id": spot_id_type}
                     )
                     conn.commit()
                 st.session_state.admin_message = f"Updated Spot {spot_id_type} to {'Regular' if new_spot_type_value is None else new_spot_type_value}"
+                #'Regular' if new_spot_type_value is None else 
                 st.cache_data.clear()
                 st.rerun()
     
