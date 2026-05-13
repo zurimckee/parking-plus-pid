@@ -10,6 +10,15 @@ from sqlalchemy import text
 import datetime 
 
 
+def check_password():
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    if st.session_state.authenticated:
+        return True
+    
+    
+
+is_admin = check_password()
 
 # -- initialize session state for admin messages --
 if "admin_message" not in st.session_state:
@@ -206,172 +215,214 @@ with st.container(border=True):
 
 # --- ADMIN CONTROLS PANEL ---
 
+
 with st.sidebar:
     st.header("Admin Control Panel")
 
-    lot_tab, spot_tab, sensor_tab = st.tabs(["Manage Lots", "Manage Spots", "Manage Sensors"])
-
-
-    with lot_tab:
-        st.subheader("Lot Management", help= "Manage parking lots (e.g. for maintenance or special events)")
-        st.write("Use the controls below to update the status of existing lots, add new lots, or delete lots from the database. Changes will be reflected in the dashboard after refreshing.")
-        active_lot, add_lot, delete_lot = st.tabs(["Update Lot Status", "Add New Lot", "Delete Lot"])
-        # ------ LOTS ------
-        with active_lot:
-            st.subheader("Update Lot Status", help= "Manually activate or deactivate a parking lot")
-            lot_options = lot_summary["Lot_Name"].tolist()
-            selected_lot = st.selectbox("Select lot", lot_options)  
-            new_status = st.toggle("Active")
-            if st.button("Update Lot Status"):
-                with engine.connect() as conn:
-                    conn.execute(
-                        text("UPDATE Lots SET Is_Active = :status WHERE Lot_Name = :name"),
-                        {"status": new_status, "name":selected_lot}
-                    )
-                    conn.commit()
-
-                st.session_state.admin_message = f"Updated {selected_lot} to {'Active' if new_status == True else 'Inactive'}"
-                st.cache_data.clear()
-                st.rerun()
-
-        with add_lot:
-            st.subheader("Add a new Parking Lot", help="Add a new parking lot to the database, new lots will be set to active by default")
-            lot_id = st.text_input("Enter Lot ID", placeholder="Enter Lot ID (e.g. L002)")
-            lot_name = st.text_input("Enter Lot Name", placeholder="Enter Lot Name (e.g. South Lot)")
-            address = st.text_input("Enter Lot Address", placeholder="Enter Lot Address")
-            lot_type = st.selectbox("Select Lot Type", ["Deck", "Lot", "Street"])
-
-
-            if st.button("Add Lot"):
-                with engine.connect() as conn:
-                    conn.execute(
-                        text("INSERT INTO Lots(Lot_ID, Lot_Name, Address, Lot_Type) VALUES (:id, :name, :address, :type)"),
-                        {"id": lot_id, 
-                        "name": lot_name, 
-                        "address": address, 
-                        "type": lot_type}
-                    )
-                    conn.commit()
-                st.session_state.admin_message = f"New lot added: {lot_name} and status set to Active"
-                st.cache_data.clear() 
-                st.rerun()
-        
-        with delete_lot:
-            st.subheader("Delete a Parking Lot", help="Delete a parking lot from the database, this will also delete all associated parking spots and sensors")
-            deleted_lot = st.selectbox("Select lot to delete", lot_options)
-            if st.button("Delete Lot"):
-                with engine.connect() as conn:
-                    conn.execute(
-                        text("DELETE FROM Lots WHERE Lot_Name = :name"),
-                        {"name" : deleted_lot}
-                    )
-                    conn.commit()
-                st.session_state.admin_message = f"Lot deleted successfully: {deleted_lot}"
-                st.cache_data.clear()
-                st.rerun()
-
-    # ------ SPOTS ------
-
-    with spot_tab:
-        st.subheader("Spot Management", help="Manage parking spots within each lot")
-        st.write("Use the controls below to update the status of existing parking spots, add new spots, or delete spots from the database. Changes will be reflected in the dashboard after refreshing.")
-        active_spot, add_spot, delete_spot, change_spot_type = st.tabs(["Update Spot Status", "Add New Spot", "Delete Spot", "Change Spot Type"])
-
-        with active_spot:
-            st.subheader("Update Spot Status", help="Manually set a parking spot to available or occupied")
-        # -- UPDATE SPOT STATUS --
-            spot_id = st.number_input("Spot ID", min_value=1, step=1, key="spot_id")
-            spot_status = st.toggle("Available")
-            if st.button("Update Spot Status"):
-                with engine.connect() as conn:
-                    conn.execute(
-                        text("UPDATE Spots SET Status = :status WHERE Spot_ID = :id"),
-                        {"status": spot_status, "id": spot_id}
-
-                    )
-                    conn.commit()
-                
-                st.session_state.admin_message = f"Updated Spot {spot_id} to {"Available" if spot_status == True else "Occupied"}"
-                st.cache_data.clear()
-                st.rerun()
-
-
-        with add_spot:
-            st.subheader("Add a New Parking Spot", help="Add a new parking spot to the database, new spots will be set to available by default")
-        # -- ADD SPOT --
-            new_spot_id = st.number_input("Enter Spot ID", min_value=1, step=1, key="new_spot_id")
-            spot_lot_ID = st.text_input("Enter Lot ID for New Spot")
-            spot_type = st.selectbox("Select Spot Type", ["Regular (None)", "Handicapped", "Staff", "Reserved"])
-            spot_level = st.number_input("Enter Level (if spot in a deck)", min_value=0, step=1, key="spot_level")
-
-            spot_type_value = None if spot_type == "Regular (None)" else spot_type
-
-            if st.button("Add Spot"):
-                with engine.connect() as conn:
-                    conn.execute(
-                        text("INSERT INTO Spots(Spot_ID, Lot_ID, Spot_Type, Level, Status) VALUES (:id, :lot_id, :type, :level, TRUE)"),
-                        {"id": new_spot_id,
-                        "lot_id": spot_lot_ID,
-                        "type": spot_type_value,
-                        "level": spot_level}
-                    )
-                    conn.commit()
-                st.session_state.admin_message = f"New spot added: ID {new_spot_id} in Lot {spot_lot_ID} and status set to Available"
-                st.cache_data.clear()
-                st.rerun()
-
-        with delete_spot:
-            st.subheader("Delete a Parking Spot", help="Delete a parking spot from the database, this will also delete all associated sensors")        
-            # -- DELETE SPOT --
-            deleted_spot = st.number_input("Enter Spot ID to Delete", min_value=1, step=1, key="deleted_spot")
-            if st.button("Delete Spot"):
-                with engine.connect() as conn:
-                    conn.execute(
-                        text("DELETE FROM Spots WHERE Spot_ID = :id"),
-                        {"id" : deleted_spot}
-                    )
-                    conn.commit()
-                st.session_state.admin_message = f"Spot deleted successfully: {deleted_spot}"
-                st.cache_data.clear()
-                st.rerun()
-
-        # -- CHANGE SPOT TYPE --
-        with change_spot_type:
-            st.subheader("Change the type of a parking spot (e.g. from regular to reserved)")
-            spot_id_type = st.number_input("Enter Spot ID to Update Type", min_value=1, step=1, key="spot_id_type")
-            new_spot_type = st.selectbox("Select New Spot Type", ["Regular", "Handicapped", "Staff", "Reserved"])
-            new_spot_type_value = None if new_spot_type == "Regular" else new_spot_type
-
-            if st.button("Update Spot Type"):
-                with engine.connect() as conn:
-                    conn.execute(
-                        text("UPDATE Spots SET Spot_Type = :type WHERE Spot_ID = :id"),
-                        {"type": new_spot_type_value, "id": spot_id_type}
-                    )
-                    conn.commit()
-                st.session_state.admin_message = f"Updated Spot {spot_id_type} to {'Regular' if new_spot_type_value is None else new_spot_type_value}"
-                #'Regular' if new_spot_type_value is None else 
-                st.cache_data.clear()
-                st.rerun()
-    
-    with sensor_tab:
-        st.subheader("Sensor Management", help="Manage parking spot sensors")
-        st.write("Report a sensor as down, or update its status when fixed")
-        
-        sensor_id = st.number_input("Enter Spot ID", min_value=1, step=1, key="sensor_id")
-        sensor_status = st.toggle("Online")
-
-        if st.button("Update Sensor Status"):
-            with engine.connect() as conn:
-                conn.execute(
-                    text("UPDATE Sensor_Health SET Is_Online = :status WHERE Sensor_ID = :id"),
-                    {"status": spot_status, "id": spot_id}
-                )
-                conn.commit()
-            st.session_state.admin_message = f"Updated Sensor {sensor_id} to {"Online" if sensor_status == True else "Offline"}"
-            st.cache_data.clear()
+    # Login/logout widget
+    if not st.session_state.authenticated:
+        with st.expander("Admin Login"):
+            password = st.text_input("Password", type="password", key="pw_input")
+            if st.button("Login"):
+                if password == st.secrets["auth"]["admin_password"]:
+                    st.session_state.authenticated = True
+                    st.rerun()
+                else:
+                    st.error("Incorrect password")
+    else:
+        st.success("Logged in as Admin")
+        if st.button("Logout"):
+            st.session_state.authenticated = False
             st.rerun()
+
+
+        lot_tab, spot_tab, sensor_tab = st.tabs(["Manage Lots", "Manage Spots", "Manage Sensors"])
+
+
+        with lot_tab:
+            st.subheader("Lot Management", help= "Manage parking lots (e.g. for maintenance or special events)")
+            st.write("Use the controls below to update the status of existing lots, add new lots, or delete lots from the database. Changes will be reflected in the dashboard after refreshing.")
+            active_lot, add_lot, delete_lot = st.tabs(["Update Lot Status", "Add New Lot", "Delete Lot"])
+            # ------ LOTS ------
+            with active_lot:
+                st.subheader("Update Lot Status", help= "Manually activate or deactivate a parking lot")
+                lot_options = lot_summary["Lot_Name"].tolist()
+                selected_lot = st.selectbox("Select lot", lot_options)  
+                new_status = st.toggle("Active")
+                if st.button("Update Lot Status"):
+                    if not st.session_state.authenticated:
+                        st.warning("🔒 Login as admin to make changes.")
+                    else:
+                        with engine.connect() as conn:
+                            conn.execute(
+                                text("UPDATE Lots SET Is_Active = :status WHERE Lot_Name = :name"),
+                                {"status": new_status, "name":selected_lot}
+                            )
+                            conn.commit()
+
+                        st.session_state.admin_message = f"Updated {selected_lot} to {'Active' if new_status == True else 'Inactive'}"
+                        st.cache_data.clear()
+                        st.rerun()
+
+            with add_lot:
+                st.subheader("Add a new Parking Lot", help="Add a new parking lot to the database, new lots will be set to active by default")
+                lot_id = st.text_input("Enter Lot ID", placeholder="Enter Lot ID (e.g. L002)")
+                lot_name = st.text_input("Enter Lot Name", placeholder="Enter Lot Name (e.g. South Lot)")
+                address = st.text_input("Enter Lot Address", placeholder="Enter Lot Address")
+                lot_type = st.selectbox("Select Lot Type", ["Deck", "Lot", "Street"])
+
+
+                if st.button("Add Lot"):
+                    if not st.session_state.authenticated:
+                        st.warning("🔒 Login as admin to make changes.")
+                    else:
+                        with engine.connect() as conn:
+                            conn.execute(
+                                text("INSERT INTO Lots(Lot_ID, Lot_Name, Address, Lot_Type) VALUES (:id, :name, :address, :type)"),
+                                {"id": lot_id, 
+                                "name": lot_name, 
+                                "address": address, 
+                                "type": lot_type}
+                            )
+                            conn.commit()
+                        st.session_state.admin_message = f"New lot added: {lot_name} and status set to Active"
+                        st.cache_data.clear() 
+                        st.rerun()
+                
+            with delete_lot:
+                st.subheader("Delete a Parking Lot", help="Delete a parking lot from the database, this will also delete all associated parking spots and sensors")
+                deleted_lot = st.selectbox("Select lot to delete", lot_options)
+                if st.button("Delete Lot"):
+                    if not st.session_state.authenticated:
+                        st.warning("🔒 Login as admin to make changes.")
+                    else:
+                        with engine.connect() as conn:
+                            conn.execute(
+                                text("DELETE FROM Lots WHERE Lot_Name = :name"),
+                                {"name" : deleted_lot}
+                            )
+                            conn.commit()
+                        st.session_state.admin_message = f"Lot deleted successfully: {deleted_lot}"
+                        st.cache_data.clear()
+                        st.rerun()
+
+        # ------ SPOTS ------
+
+        with spot_tab:
+            st.subheader("Spot Management", help="Manage parking spots within each lot")
+            st.write("Use the controls below to update the status of existing parking spots, add new spots, or delete spots from the database. Changes will be reflected in the dashboard after refreshing.")
+            active_spot, add_spot, delete_spot, change_spot_type = st.tabs(["Update Spot Status", "Add New Spot", "Delete Spot", "Change Spot Type"])
+
+            with active_spot:
+                st.subheader("Update Spot Status", help="Manually set a parking spot to available or occupied")
+            # -- UPDATE SPOT STATUS --
+                spot_id = st.number_input("Spot ID", min_value=1, step=1, key="spot_id")
+                spot_status = st.toggle("Available")
+                if st.button("Update Spot Status"):
+                    if not st.session_state.authenticated:
+                        st.warning("🔒 Login as admin to make changes.")
+                    else:
+                        with engine.connect() as conn:
+                            conn.execute(
+                                text("UPDATE Spots SET Status = :status WHERE Spot_ID = :id"),
+                                {"status": spot_status, "id": spot_id}
+
+                            )
+                            conn.commit()
+                        
+                        st.session_state.admin_message = f"Updated Spot {spot_id} to {"Available" if spot_status == True else "Occupied"}"
+                        st.cache_data.clear()
+                        st.rerun()
+
+
+            with add_spot:
+                st.subheader("Add a New Parking Spot", help="Add a new parking spot to the database, new spots will be set to available by default")
+            # -- ADD SPOT --
+                new_spot_id = st.number_input("Enter Spot ID", min_value=1, step=1, key="new_spot_id")
+                spot_lot_ID = st.text_input("Enter Lot ID for New Spot")
+                spot_type = st.selectbox("Select Spot Type", ["Regular (None)", "Handicapped", "Staff", "Reserved"])
+                spot_level = st.number_input("Enter Level (if spot in a deck)", min_value=0, step=1, key="spot_level")
+
+                spot_type_value = None if spot_type == "Regular (None)" else spot_type
+
+                if st.button("Add Spot"):
+                    if not st.session_state.authenticated:
+                        st.warning("🔒 Login as admin to make changes.")
+                    else:
+                        with engine.connect() as conn:
+                            conn.execute(
+                                text("INSERT INTO Spots(Spot_ID, Lot_ID, Spot_Type, Level, Status) VALUES (:id, :lot_id, :type, :level, TRUE)"),
+                                {"id": new_spot_id,
+                                "lot_id": spot_lot_ID,
+                                "type": spot_type_value,
+                                "level": spot_level}
+                            )
+                            conn.commit()
+                        st.session_state.admin_message = f"New spot added: ID {new_spot_id} in Lot {spot_lot_ID} and status set to Available"
+                        st.cache_data.clear()
+                        st.rerun()
+
+            with delete_spot:
+                st.subheader("Delete a Parking Spot", help="Delete a parking spot from the database, this will also delete all associated sensors")        
+                # -- DELETE SPOT --
+                deleted_spot = st.number_input("Enter Spot ID to Delete", min_value=1, step=1, key="deleted_spot")
+                if st.button("Delete Spot"):
+                    if not st.session_state.authenticated:
+                        st.warning("🔒 Login as admin to make changes.")
+                    else:
+                        with engine.connect() as conn:
+                            conn.execute(
+                                text("DELETE FROM Spots WHERE Spot_ID = :id"),
+                                {"id" : deleted_spot}
+                            )
+                            conn.commit()
+                        st.session_state.admin_message = f"Spot deleted successfully: {deleted_spot}"
+                        st.cache_data.clear()
+                        st.rerun()
+
+            # -- CHANGE SPOT TYPE --
+            with change_spot_type:
+                st.subheader("Change the type of a parking spot (e.g. from regular to reserved)")
+                spot_id_type = st.number_input("Enter Spot ID to Update Type", min_value=1, step=1, key="spot_id_type")
+                new_spot_type = st.selectbox("Select New Spot Type", ["Regular", "Handicapped", "Staff", "Reserved"])
+                new_spot_type_value = None if new_spot_type == "Regular" else new_spot_type
+
+                if st.button("Update Spot Type"):
+                    if not st.session_state.authenticated:
+                        st.warning("🔒 Login as admin to make changes.")
+                    else:
+                        with engine.connect() as conn:
+                            conn.execute(
+                                text("UPDATE Spots SET Spot_Type = :type WHERE Spot_ID = :id"),
+                                {"type": new_spot_type_value, "id": spot_id_type}
+                            )
+                            conn.commit()
+                        st.session_state.admin_message = f"Updated Spot {spot_id_type} to {'Regular' if new_spot_type_value is None else new_spot_type_value}"
+                        #'Regular' if new_spot_type_value is None else 
+                        st.cache_data.clear()
+                        st.rerun()
         
+        with sensor_tab:
+            st.subheader("Sensor Management", help="Manage parking spot sensors")
+            st.write("Report a sensor as down, or update its status when fixed")
+            
+            sensor_id = st.number_input("Enter Spot ID", min_value=1, step=1, key="sensor_id")
+            sensor_status = st.toggle("Online")
+
+            if st.button("Update Sensor Status"):
+                    if not st.session_state.authenticated:
+                        st.warning("🔒 Login as admin to make changes.")
+                    else:
+                        with engine.connect() as conn:
+                            conn.execute(
+                                text("UPDATE Sensor_Health SET Is_Online = :status WHERE Sensor_ID = :id"),
+                                {"status": spot_status, "id": spot_id}
+                            )
+                            conn.commit()
+                        st.session_state.admin_message = f"Updated Sensor {sensor_id} to {"Online" if sensor_status == True else "Offline"}"
+                        st.cache_data.clear()
+                        st.rerun()
+                    
 
 
 
