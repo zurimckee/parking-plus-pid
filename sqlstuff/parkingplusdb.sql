@@ -27,6 +27,8 @@ CREATE TABLE Lots(
     Address VARCHAR(250) NOT NULL UNIQUE,
     Is_Active BOOLEAN NOT NULL DEFAULT TRUE,
     Lot_Type ENUM('Deck', 'Lot', 'Street'),
+	Latitude DECIMAL(9, 6),
+	Longitude DECIMAL(9, 6),
     PRIMARY KEY(Lot_ID)
     );
 
