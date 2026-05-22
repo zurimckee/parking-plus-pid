@@ -41,6 +41,6 @@ All admin actions write directly to the database and trigger an automatic cache 
 ## Contact
 
 - **Bug reports:** [zurimckee95@gmail.com](mailto:zurimckee95@gmail.com)
-- **Help / live app:** [smartparkingplus.lovable.app](https://smartparkingplus.lovable.app)
+- **Help / live app:** [smartparkplus.vercel.app](https://smartparkplus.vercel.app/)
 
    
