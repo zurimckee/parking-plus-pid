@@ -41,6 +41,6 @@ All admin actions write directly to the database and trigger an automatic cache 
 ## Contact
 
 - **Bug reports:** [zurimckee95@gmail.com](mailto:zurimckee95@gmail.com)
-- **Help / live app:** [parkingplus data dashboard/]((https://parkingplusdash.streamlit.app/))
+- **Help / live app:** (https://parkingplusdash.streamlit.app)
 
    
